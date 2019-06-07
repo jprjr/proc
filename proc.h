@@ -19,8 +19,13 @@ int proc_pipe_write(proc_pipe *, const char *, unsigned int len);
 int proc_pipe_read(proc_pipe *, char *, unsigned int len);
 int proc_pipe_close(proc_pipe *);
 
+int proc_pipe_open_file(proc_pipe *, const char *filename, const char *mode);
+
+#ifdef __cplusplus
+}
+#endif
+
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
 
 struct proc_info_s {
@@ -50,10 +55,6 @@ struct proc_pipe_s {
     int pipe;
 };
 
-#endif
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif

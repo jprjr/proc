@@ -121,11 +121,14 @@ int proc_pipe_read(proc_pipe *pipe, char *buf, unsigned int len) {
 
 int proc_pipe_close(proc_pipe *pipe) {
 #ifdef _WIN32
-    BOOL r = CloseHandle(pipe->pipe);
+    BOOL r;
+    if(pipe->pipe == INVALID_HANDLE_VALUE) return 0;
+    r = CloseHandle(pipe->pipe);
     if(r) pipe->pipe = INVALID_HANDLE_VALUE;
     return !r;
 #else
-    int r = close(pipe->pipe);
+    int r;
+    r = close(pipe->pipe);
     if(r == 0) pipe->pipe = -1;
     return r;
 #endif
@@ -314,15 +317,20 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
     goto success;
 
 #else
-    char *path = NULL;
+    char *path;
     char argv0[4096];
-    argv0[0] = '\0';
-    int argv0len = 0;
-    pid_t pid = -1;
-    char *t = NULL;
+    int argv0len;
+    pid_t pid;
+    char *t;
     int in_fds[2] = { -1, -1 };
     int out_fds[2] = { -1, -1 };
     int err_fds[2] = { -1, -1 };
+
+    path = NULL;
+    argv0[0] = '\0';
+    argv0len = 0;
+    pid = -1;
+    t = NULL;
 
     path = getenv("PATH");
     if(path == NULL) path = "/usr/bin:/usr/sbin:/bin:/sbin";
@@ -474,5 +482,79 @@ success:
 #endif
 
     return info;
+}
+
+int proc_pipe_open_file(proc_pipe *pipe, const char *filename, const char *mode) {
+#ifdef _WIN32
+    DWORD disp = 0;
+    DWORD access = 0;
+    switch(mode[0]) {
+        case 'r': {
+            access = GENERIC_READ;
+            disp = OPEN_EXISTING;
+            break;
+        }
+        case 'w': {
+            access = GENERIC_WRITE;
+            disp = CREATE_ALWAYS;
+            break;
+        }
+        case 'a': {
+            access = GENERIC_WRITE;
+            disp = OPEN_ALWAYS;
+            break;
+        }
+        default: return -1;
+    }
+    mode++;
+    switch(mode[0]) {
+        case '+': access = GENERIC_READ | GENERIC_WRITE;
+    }
+    pipe->pipe = CreateFile(filename,access,0,NULL,disp,0,0);
+    if(pipe->pipe == INVALID_HANDLE_VALUE) return 1;
+    if(disp == OPEN_ALWAYS) {
+        SetFilePointer(pipe->pipe,0,0,FILE_END);
+    }
+    return 0;
+#else
+    int flags = 0;
+    int wr = 0;
+    switch(mode[0]) {
+        case 'r': {
+            flags |= O_RDONLY;
+            break;
+        }
+        case 'w': {
+            wr = 1;
+            break;
+        }
+        case 'a': {
+            wr = 2;
+            break;
+        }
+        default: return 1;
+    }
+    mode++;
+    switch(mode[0]) {
+        case '+': flags = O_RDWR; break;
+        default: if(wr) flags |= O_WRONLY;
+    }
+
+    switch(wr) {
+        case 1: {
+            flags |= O_CREAT;
+            flags |= O_TRUNC;
+            break;
+        }
+        case 2: {
+            flags |= O_CREAT;
+            flags |= O_APPEND;
+            break;
+        }
+    }
+    pipe->pipe = open(filename,flags,0666);
+    if(pipe->pipe == -1) return 1;
+    return 0;
+#endif
 
 }
