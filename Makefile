@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-CFLAGS = -O2 -Wall -Wextra
+CFLAGS = -O2 -Wall -Wextra -std=c89 -pedantic
 LDFLAGS =
 
 all: demo demo.exe cat.exe lolcat.exe cat lolcat echo echo.exe

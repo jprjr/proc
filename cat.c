@@ -16,6 +16,7 @@
 char buffer[1024];
 
 int main(int argc, char *argv[]) {
+    unsigned int r;
     (void)argc;
 #ifdef _WIN32
     _setmode(fileno(stdin),O_BINARY);
@@ -23,7 +24,7 @@ int main(int argc, char *argv[]) {
 #endif
     buffer[0] = 0;
     sprintf(buffer,"%s: ",argv[0]);
-    unsigned int r = 0;
+    r = 0;
     do {
         r = fread(buffer + strlen(buffer),1,1023 - strlen(buffer),stdin);
         if(r > 0) {

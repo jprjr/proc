@@ -2,3 +2,7 @@
 *.a
 *.exe
 /demo
+/cat
+/echo
+/lolcat
+/test.txt
