@@ -9,6 +9,47 @@ static int coe(int fd) {
 }
 #endif
 
+#ifdef _WIN32
+static unsigned int strcat_escape(char *d, const char *s) {
+    if(d != NULL) d += lstrlen(d);
+
+    int n = 0;
+    char echar = '\0';
+    int ecount = 0;
+    while(*s) {
+        ecount = 0;
+        switch(*s) {
+            case '"':  ecount=1; echar='\\'; break;
+            case '\\': {
+                if(lstrlen(s) == 1) {
+                    ecount=1;echar='\\';
+                }
+                else {
+                    if(*(s+1) == '"') {
+                        ecount=1;echar='\\';
+                    }
+                }
+            }
+            break;
+            default: break;
+        }
+        n += ecount + 1;
+        if(d != NULL) {
+            while(ecount) {
+                *d++ = echar;
+                ecount--;
+            }
+            *d++ = *s;
+        }
+        s++;
+    }
+
+    if(d != NULL) *d = '\0';
+    return n;
+}
+
+#endif
+
 static void proc_info_init(proc_info *info) {
 #ifdef _WIN32
     info->handle = INVALID_HANDLE_VALUE;
@@ -132,7 +173,7 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
     }
 
     while(*p != NULL) {
-        args_len += lstrlen(*p) + 3; /* two quotes and a space */
+        args_len += strcat_escape(NULL,*p) + 3; /* +1 space, +2 quote */
         p++;
     }
     args_len += 25; /* null terminator, plus the api guide suggests having extra memory or something */
@@ -143,13 +184,14 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
     }
 
     p = argv;
-    lstrcpy(cmdLine,"\"");
-    lstrcat(cmdLine,*p++);
     lstrcat(cmdLine,"\"");
+    strcat_escape(cmdLine,*p);
+    lstrcat(cmdLine,"\"");
+    p++;
 
     while(*p != NULL) {
         lstrcat(cmdLine," \"");
-        lstrcat(cmdLine,*p);
+        strcat_escape(cmdLine,*p);
         lstrcat(cmdLine,"\"");
         p++;
     }

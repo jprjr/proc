@@ -3,7 +3,7 @@
 CFLAGS = -O2 -Wall -Wextra
 LDFLAGS =
 
-all: demo demo.exe cat.exe lolcat.exe
+all: demo demo.exe cat.exe lolcat.exe cat lolcat echo echo.exe
 
 demo: demo.c proc.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -11,11 +11,23 @@ demo: demo.c proc.c
 demo.exe: demo.c proc.c
 	i686-w64-mingw32-gcc -Wall -Wextra -nostdlib -ffreestanding -mconsole -fno-stack-check -fno-stack-protector -mno-stack-arg-probe -o $@ $^ -lkernel32
 
-cat.exe: cat.c
-	i686-w64-mingw32-gcc -Wall -Wextra -o $@ $^
+echo: echo.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-lolcat.exe: cat.c
-	i686-w64-mingw32-gcc -Wall -Wextra -o $@ $^
+echo.exe: echo.c
+	i686-w64-mingw32-gcc $(CFLAGS) -o $@ $^
+
+cat: cat.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+cat.exe: cat.c
+	i686-w64-mingw32-gcc $(CFLAGS) -o $@ $^
+
+lolcat: cat
+	ln -s cat lolcat
+
+lolcat.exe: cat.exe
+	ln -s cat.exe lolcat.exe
 
 clean:
-	rm -f demo demo.exe cat.exe lolcat.exe
+	rm -f *.exe demo echo cat lolcat

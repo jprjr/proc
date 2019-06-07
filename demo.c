@@ -1,3 +1,8 @@
+#ifndef _WIN32
+#include <stdlib.h>
+#include <string.h>
+#endif
+
 #include "proc.h"
 
 /* spawns a process, pipes it into another */
@@ -9,9 +14,20 @@ char buffer[1024];
 int WINAPI mainCRTStartup(void) {
 #else
 int main(void) {
+    char *newpath;
+    char *path = getenv("PATH");
+    if(path == NULL) path = "/usr/bin:/bin:/usr/sbin:/sbin";
+    newpath = malloc(strlen(path) + strlen(".:") + 1);
+    if(newpath == NULL) return 1;
+    strcpy(newpath,".:");
+    strcat(newpath,path);
+    setenv("PATH",newpath,1);
+    free(newpath);
 #endif
+
     proc_info *child1 = NULL;
     proc_info *child2 = NULL;
+    proc_info *child3 = NULL;
 
     proc_pipe child1_in;
     proc_pipe child1_out;
@@ -30,7 +46,39 @@ int main(void) {
 
     const char *const child2_argv[] = {
         "lolcat",
-        "-f",
+        NULL
+    };
+
+    const char *const child3_argv[] = {
+        "echo",
+        "1",
+        "2",
+        "3",
+        "C:\\some path\\",
+        "a \"quoted\" string",
+        "another 'quoted' string",
+        "\"a string that begins with a quote",
+        "a string that ends with a quote\"",
+        "\"a string that begins and ends with a quote\"",
+        "'a string that begins and ends with apostrophe'",
+        "a string with \\ a backslash",
+        "'a string ''\"' that has '\"\"\"random\"'\"'''' quotes and \\ slash \\\"",
+        "' a string with [ and ] in there, also () and !  !!!",
+        "*.c",
+        "*.?",
+        "a string with > in it",
+        ">",
+        "^",
+        "&",
+        "|",
+        "<",
+        "\\",
+        "C:\\some path",
+        "%",
+        "$",
+        "$SOMEVAR",
+        "%SOMEVAR%",
+        "%SOMEVAR",
         NULL
     };
 
@@ -65,6 +113,11 @@ int main(void) {
 
     proc_info_wait(child1);
     proc_info_wait(child2);
+
+    if( (child3 = proc_spawn(child3_argv,NULL,NULL,NULL)) == NULL) {
+        return 1;
+    }
+    proc_info_wait(child3);
 
     return 0;
 }
