@@ -356,9 +356,6 @@ int jpr_proc_spawn(jpr_proc_info *info, const char * const *argv, jpr_proc_pipe 
     path = getenv("PATH");
     if(path == NULL) path = "/usr/bin:/usr/sbin:/bin:/sbin";
 
-    info = (jpr_proc_info *)malloc(sizeof(jpr_proc_info));
-    jpr_proc_info_init(info);
-
     if(in != NULL) {
         if(in->pipe == -1) {
             if(pipe(in_fds) != 0) goto error;
