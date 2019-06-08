@@ -1,4 +1,93 @@
-#include "proc.h"
+#ifndef JPR_PROC_H
+#define JPR_PROC_H
+
+/*
+  A simple public-domain, single-file library for starting processes.
+  Features pipe data into, out of, and between processes, as well
+  as redirecting input/output to/from files.
+
+  To use: define JPR_PROC_IMPLEMENTATION into one C/C++ file within
+  your project, then include this file.
+
+  Example:
+  #include ...
+  #include ...
+  #define JPR_PROC_IMPLEMENTATION
+  #include "jpr_proc.h"
+
+  There's two basic types you use: jpr_proc_info and jpr_proc_pipe.
+
+  You allocate a proc_info struct and call jpr_proc_info_init on it.
+  Also create whichever jpr_proc_pipe objects you need, call init,
+  and either create pipes or open files.
+
+  Then call jpr_proc_spawn, read/write from/to pipes, and finally
+  call jpr_proc_wait to clean up.
+
+  Tested on Windows, osx, and Linux.
+
+  License is available at the end of the file.
+*/
+
+#include <stddef.h>
+#include <limits.h>
+
+typedef struct jpr_proc_info_s jpr_proc_info;
+typedef struct jpr_proc_pipe_s jpr_proc_pipe;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int jpr_proc_info_init(jpr_proc_info *);
+int jpr_proc_spawn(jpr_proc_info *, const char * const *argv, jpr_proc_pipe *in, jpr_proc_pipe *out, jpr_proc_pipe *err);
+int jpr_proc_info_wait(jpr_proc_info *, int *);
+
+int jpr_proc_pipe_init(jpr_proc_pipe *);
+int jpr_proc_pipe_write(jpr_proc_pipe *, const char *, unsigned int len, unsigned int *written);
+int jpr_proc_pipe_read(jpr_proc_pipe *, char *, unsigned int len, unsigned int *read);
+int jpr_proc_pipe_close(jpr_proc_pipe *);
+
+int jpr_proc_pipe_open_file(jpr_proc_pipe *, const char *filename, const char *mode);
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
+
+struct jpr_proc_info_s {
+    HANDLE handle;
+    int pid;
+};
+
+struct jpr_proc_pipe_s {
+    HANDLE pipe;
+};
+
+
+#else
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+
+struct jpr_proc_info_s {
+    int pid;
+};
+
+struct jpr_proc_pipe_s {
+    int pipe;
+};
+
+#endif
+#endif
+
+#ifdef JPR_PROC_IMPLEMENTATION
 
 #ifndef _WIN32
 extern char** environ;
@@ -69,49 +158,54 @@ static unsigned int jpr_strcat_escape(char *d, const char *s) {
 
 #endif
 
-void jpr_proc_info_init(jpr_proc_info *info) {
+int jpr_proc_info_init(jpr_proc_info *info) {
 #ifdef _WIN32
     info->handle = INVALID_HANDLE_VALUE;
     info->pid = -1;
 #else
     info->pid = -1;
 #endif
+    return 0;
 }
 
 
-int jpr_proc_info_wait(jpr_proc_info *info) {
-    int ecode = -1;
+int jpr_proc_info_wait(jpr_proc_info *info, int *e) {
 #ifdef _WIN32
     DWORD exitCode;
-    if(info->handle == INVALID_HANDLE_VALUE) return -1;
+    if(info->handle == INVALID_HANDLE_VALUE) return 1;
     if(WaitForSingleObject(info->handle,INFINITE) != 0) {
-        return -1;
+        return 1;
     }
     if(!GetExitCodeProcess(info->handle,&exitCode)) {
-        return -1;
+        return 1;
     }
     jpr_proc_info_init(info);
-    ecode = (int)exitCode;
+    *e = (int)exitCode;
+    return 0;
 #else
     int st;
-    if(info->pid == -1) return -1;
+    if(info->pid == -1) return 1;
     waitpid(info->pid,&st,0);
-    if(WIFEXITED(st)) ecode = WEXITSTATUS(st);
     jpr_proc_info_init(info);
+    if(WIFEXITED(st)) {
+        *e = (int)WEXITSTATUS(st);
+        return 0;
+    }
+    return 1;
 #endif
-    return ecode;
 }
 
 
-void jpr_proc_pipe_init(jpr_proc_pipe *pipe) {
+int jpr_proc_pipe_init(jpr_proc_pipe *pipe) {
 #ifdef _WIN32
     pipe->pipe = INVALID_HANDLE_VALUE;
 #else
     pipe->pipe = -1;
 #endif
+    return 0;
 }
 
-int jpr_proc_pipe_write(jpr_proc_pipe *pipe, const char *buf, unsigned int len) {
+int jpr_proc_pipe_write(jpr_proc_pipe *pipe, const char *buf, unsigned int len, unsigned int *bytesWritten) {
 #ifdef _WIN32
     DWORD numBytes;
     if(WriteFile(
@@ -119,14 +213,20 @@ int jpr_proc_pipe_write(jpr_proc_pipe *pipe, const char *buf, unsigned int len) 
         buf,
         len,
         &numBytes,
-        NULL) == 0) return -1;
-    return (int)numBytes;
+        NULL) == 0) return 1;
+    *bytesWritten = (unsigned int)numBytes;
+    return 0;
 #else
-    return write(pipe->pipe,buf,len);
+    int r;
+    *bytesWritten = 0;
+    r = write(pipe->pipe,buf,len);
+    if(r < 0) return 1;
+    *bytesWritten = (unsigned int)r;
+    return 0;
 #endif
 }
 
-int jpr_proc_pipe_read(jpr_proc_pipe *pipe, char *buf, unsigned int len) {
+int jpr_proc_pipe_read(jpr_proc_pipe *pipe, char *buf, unsigned int len,unsigned int *bytesRead) {
 #ifdef _WIN32
     DWORD numBytes;
     if(ReadFile(
@@ -134,10 +234,16 @@ int jpr_proc_pipe_read(jpr_proc_pipe *pipe, char *buf, unsigned int len) {
         buf,
         len,
         &numBytes,
-        NULL) == 0) return -1;
-    return (int)numBytes;
+        NULL) == 0) return 1;
+    *bytesRead = (unsigned int)numBytes;
+    return 0;
 #else
-    return read(pipe->pipe,buf,len);
+    int r;
+    *bytesRead = 0;
+    r = read(pipe->pipe,buf,len);
+    if(r < 0) return 1;
+    *bytesRead = (unsigned int)r;
+    return 0;
 #endif
 }
 
@@ -572,3 +678,125 @@ int jpr_proc_pipe_open_file(jpr_proc_pipe *pipe, const char *filename, const cha
 #endif
 
 }
+#endif
+
+
+/*
+
+CC0 1.0 Universal
+
+Statement of Purpose
+
+The laws of most jurisdictions throughout the world automatically confer
+exclusive Copyright and Related Rights (defined below) upon the creator and
+subsequent owner(s) (each and all, an "owner") of an original work of
+authorship and/or a database (each, a "Work").
+
+Certain owners wish to permanently relinquish those rights to a Work for the
+purpose of contributing to a commons of creative, cultural and scientific
+works ("Commons") that the public can reliably and without fear of later
+claims of infringement build upon, modify, incorporate in other works, reuse
+and redistribute as freely as possible in any form whatsoever and for any
+purposes, including without limitation commercial purposes. These owners may
+contribute to the Commons to promote the ideal of a free culture and the
+further production of creative, cultural and scientific works, or to gain
+reputation or greater distribution for their Work in part through the use and
+efforts of others.
+
+For these and/or other purposes and motivations, and without any expectation
+of additional consideration or compensation, the person associating CC0 with a
+Work (the "Affirmer"), to the extent that he or she is an owner of Copyright
+and Related Rights in the Work, voluntarily elects to apply CC0 to the Work
+and publicly distribute the Work under its terms, with knowledge of his or her
+Copyright and Related Rights in the Work and the meaning and intended legal
+effect of CC0 on those rights.
+
+1. Copyright and Related Rights. A Work made available under CC0 may be
+protected by copyright and related or neighboring rights ("Copyright and
+Related Rights"). Copyright and Related Rights include, but are not limited
+to, the following:
+
+  i. the right to reproduce, adapt, distribute, perform, display, communicate,
+  and translate a Work;
+
+  ii. moral rights retained by the original author(s) and/or performer(s);
+
+  iii. publicity and privacy rights pertaining to a person's image or likeness
+  depicted in a Work;
+
+  iv. rights protecting against unfair competition in regards to a Work,
+  subject to the limitations in paragraph 4(a), below;
+
+  v. rights protecting the extraction, dissemination, use and reuse of data in
+  a Work;
+
+  vi. database rights (such as those arising under Directive 96/9/EC of the
+  European Parliament and of the Council of 11 March 1996 on the legal
+  protection of databases, and under any national implementation thereof,
+  including any amended or successor version of such directive); and
+
+  vii. other similar, equivalent or corresponding rights throughout the world
+  based on applicable law or treaty, and any national implementations thereof.
+
+2. Waiver. To the greatest extent permitted by, but not in contravention of,
+applicable law, Affirmer hereby overtly, fully, permanently, irrevocably and
+unconditionally waives, abandons, and surrenders all of Affirmer's Copyright
+and Related Rights and associated claims and causes of action, whether now
+known or unknown (including existing as well as future claims and causes of
+action), in the Work (i) in all territories worldwide, (ii) for the maximum
+duration provided by applicable law or treaty (including future time
+extensions), (iii) in any current or future medium and for any number of
+copies, and (iv) for any purpose whatsoever, including without limitation
+commercial, advertising or promotional purposes (the "Waiver"). Affirmer makes
+the Waiver for the benefit of each member of the public at large and to the
+detriment of Affirmer's heirs and successors, fully intending that such Waiver
+shall not be subject to revocation, rescission, cancellation, termination, or
+any other legal or equitable action to disrupt the quiet enjoyment of the Work
+by the public as contemplated by Affirmer's express Statement of Purpose.
+
+3. Public License Fallback. Should any part of the Waiver for any reason be
+judged legally invalid or ineffective under applicable law, then the Waiver
+shall be preserved to the maximum extent permitted taking into account
+Affirmer's express Statement of Purpose. In addition, to the extent the Waiver
+is so judged Affirmer hereby grants to each affected person a royalty-free,
+non transferable, non sublicensable, non exclusive, irrevocable and
+unconditional license to exercise Affirmer's Copyright and Related Rights in
+the Work (i) in all territories worldwide, (ii) for the maximum duration
+provided by applicable law or treaty (including future time extensions), (iii)
+in any current or future medium and for any number of copies, and (iv) for any
+purpose whatsoever, including without limitation commercial, advertising or
+promotional purposes (the "License"). The License shall be deemed effective as
+of the date CC0 was applied by Affirmer to the Work. Should any part of the
+License for any reason be judged legally invalid or ineffective under
+applicable law, such partial invalidity or ineffectiveness shall not
+invalidate the remainder of the License, and in such case Affirmer hereby
+affirms that he or she will not (i) exercise any of his or her remaining
+Copyright and Related Rights in the Work or (ii) assert any associated claims
+and causes of action with respect to the Work, in either case contrary to
+Affirmer's express Statement of Purpose.
+
+4. Limitations and Disclaimers.
+
+  a. No trademark or patent rights held by Affirmer are waived, abandoned,
+  surrendered, licensed or otherwise affected by this document.
+
+  b. Affirmer offers the Work as-is and makes no representations or warranties
+  of any kind concerning the Work, express, implied, statutory or otherwise,
+  including without limitation warranties of title, merchantability, fitness
+  for a particular purpose, non infringement, or the absence of latent or
+  other defects, accuracy, or the present or absence of errors, whether or not
+  discoverable, all to the greatest extent permissible under applicable law.
+
+  c. Affirmer disclaims responsibility for clearing rights of other persons
+  that may apply to the Work or any use thereof, including without limitation
+  any person's Copyright and Related Rights in the Work. Further, Affirmer
+  disclaims responsibility for obtaining any necessary consents, permissions
+  or other rights required for any use of the Work.
+
+  d. Affirmer understands and acknowledges that Creative Commons is not a
+  party to this document and has no duty or obligation with respect to this
+  CC0 or use of the Work.
+
+For more information, please see
+<http://creativecommons.org/publicdomain/zero/1.0/>
+*/
