@@ -11,7 +11,8 @@ typedef struct jpr_proc_pipe_s jpr_proc_pipe;
 extern "C" {
 #endif
 
-jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_proc_pipe *out, jpr_proc_pipe *err);
+void jpr_proc_info_init(jpr_proc_info *);
+int jpr_proc_spawn(jpr_proc_info *, const char * const *argv, jpr_proc_pipe *in, jpr_proc_pipe *out, jpr_proc_pipe *err);
 int jpr_proc_info_wait(jpr_proc_info *);
 
 void jpr_proc_pipe_init(jpr_proc_pipe *);

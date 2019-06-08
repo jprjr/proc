@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-CFLAGS = -O2 -Wall -Wextra -std=c89 -pedantic
+CFLAGS = -O2 -Wall -Wextra -std=c89 -pedantic -D_DEBUG
 LDFLAGS =
 TARGET = i686-w64-mingw32
 

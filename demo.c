@@ -8,6 +8,19 @@
 /* spawns a process, pipes it into another */
 /* writes data to first process stdin */
 
+#ifdef _DEBUG
+#ifdef _WIN32
+#define log(s) \
+    WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),s,lstrlen(s),NULL,0); \
+    WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),"\n",1,NULL,0);
+#else
+#define log(s) \
+    write(1,s,strlen(s)); \
+    write(1,"\n",1);
+#endif
+#else
+#define log(s)
+#endif
 
 #ifdef _WIN32
 int WINAPI mainCRTStartup(void) {
@@ -17,9 +30,9 @@ int main(void) {
 
     int r;
     char buffer[1024];
-    jpr_proc_info *child1;
-    jpr_proc_info *child2;
-    jpr_proc_info *child3;
+    jpr_proc_info child1;
+    jpr_proc_info child2;
+    jpr_proc_info child3;
 
     jpr_proc_pipe child1_in;
     jpr_proc_pipe child1_out;
@@ -87,9 +100,9 @@ int main(void) {
     free(newpath);
 #endif
 
-    child1 = NULL;
-    child2 = NULL;
-    child3 = NULL;
+    jpr_proc_info_init(&child1);
+    jpr_proc_info_init(&child2);
+    jpr_proc_info_init(&child3);
 
     jpr_proc_pipe_init(&child1_in);
     jpr_proc_pipe_init(&child1_out);
@@ -98,13 +111,15 @@ int main(void) {
     buffer[0] = 0;
 
 
-    if( (child1 = jpr_proc_spawn(child1_argv,&child1_in,&child1_out,NULL)) == NULL) {
+    if(jpr_proc_spawn(&child1,child1_argv,&child1_in,&child1_out,NULL)) {
         return 1;
     }
+    log("spawned 1");
 
-    if( (child2 = jpr_proc_spawn(child2_argv,&child1_out,&child2_out,NULL)) == NULL) {
+    if(jpr_proc_spawn(&child2,child2_argv,&child1_out,&child2_out,NULL)) {
         return 1;
     }
+    log("spawned 2");
 
 
 #ifdef _WIN32
@@ -126,33 +141,39 @@ int main(void) {
     if(write(1,buffer,strlen(buffer)) == -1) exit(1);
 #endif
 
-    jpr_proc_info_wait(child1);
-    jpr_proc_info_wait(child2);
+    log("wait 1");
+    jpr_proc_info_wait(&child1);
+    log("wait 1");
+    jpr_proc_info_wait(&child1);
+    log("wait 2");
+    jpr_proc_info_wait(&child2);
+    log("done wait");
 
-    if( (child3 = jpr_proc_spawn(child3_argv,NULL,NULL,NULL)) == NULL) {
+    if(jpr_proc_spawn(&child3,child3_argv,NULL,NULL,NULL)) {
         return 1;
     }
-    jpr_proc_info_wait(child3);
+    log("spawn 3");
+    jpr_proc_info_wait(&child3);
 
     if(jpr_proc_pipe_open_file(&text_in,"Makefile","r")) return 1;
-    if( (child1 = jpr_proc_spawn(child1_argv,&text_in,NULL,NULL)) == NULL) {
+    if(jpr_proc_spawn(&child1,child1_argv,&text_in,NULL,NULL)) {
         return 1;
     }
-    jpr_proc_info_wait(child1);
+    jpr_proc_info_wait(&child1);
     jpr_proc_pipe_close(&text_in);
 
     if(jpr_proc_pipe_open_file(&text_out,"test.txt","w")) return 1;
-    if( (child3 = jpr_proc_spawn(child3_argv,NULL,&text_out,NULL)) == NULL) {
+    if(jpr_proc_spawn(&child3,child3_argv,NULL,&text_out,NULL)) {
         return 1;
     }
-    jpr_proc_info_wait(child3);
+    jpr_proc_info_wait(&child3);
     jpr_proc_pipe_close(&text_out);
 
     if(jpr_proc_pipe_open_file(&text_out,"test.txt","a")) return 1;
-    if( (child3 = jpr_proc_spawn(child3_argv,NULL,&text_out,NULL)) == NULL) {
+    if(jpr_proc_spawn(&child3,child3_argv,NULL,&text_out,NULL)) {
         return 1;
     }
-    jpr_proc_info_wait(child3);
+    jpr_proc_info_wait(&child3);
     jpr_proc_pipe_close(&text_out);
 
     return 0;

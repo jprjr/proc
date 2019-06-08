@@ -69,7 +69,7 @@ static unsigned int jpr_strcat_escape(char *d, const char *s) {
 
 #endif
 
-static void jpr_proc_info_init(jpr_proc_info *info) {
+void jpr_proc_info_init(jpr_proc_info *info) {
 #ifdef _WIN32
     info->handle = INVALID_HANDLE_VALUE;
     info->pid = -1;
@@ -78,23 +78,26 @@ static void jpr_proc_info_init(jpr_proc_info *info) {
 #endif
 }
 
+
 int jpr_proc_info_wait(jpr_proc_info *info) {
     int ecode = -1;
 #ifdef _WIN32
     DWORD exitCode;
+    if(info->handle == INVALID_HANDLE_VALUE) return -1;
     if(WaitForSingleObject(info->handle,INFINITE) != 0) {
         return -1;
     }
     if(!GetExitCodeProcess(info->handle,&exitCode)) {
         return -1;
     }
-    HeapFree(GetProcessHeap(),0,info);
+    jpr_proc_info_init(info);
     ecode = (int)exitCode;
 #else
     int st;
+    if(info->pid == -1) return -1;
     waitpid(info->pid,&st,0);
     if(WIFEXITED(st)) ecode = WEXITSTATUS(st);
-    free(info);
+    jpr_proc_info_init(info);
 #endif
     return ecode;
 }
@@ -155,8 +158,8 @@ int jpr_proc_pipe_close(jpr_proc_pipe *pipe) {
 
 
 
-jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_proc_pipe *out, jpr_proc_pipe *err) {
-    jpr_proc_info *info = NULL;
+int jpr_proc_spawn(jpr_proc_info *info, const char * const *argv, jpr_proc_pipe *in, jpr_proc_pipe *out, jpr_proc_pipe *err) {
+    int r = 1;
 #ifdef _WIN32
     char *cmdLine = NULL;
     unsigned int args_len = 0;
@@ -174,10 +177,7 @@ jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_p
 
     const char * const *p = argv;
 
-    info = (jpr_proc_info *)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(jpr_proc_info));
-    if(info == NULL) {
-        goto error;
-    }
+    if(info->pid != -1) return r;
 
     sa = (SECURITY_ATTRIBUTES *)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(SECURITY_ATTRIBUTES));
     if(sa == NULL) {
@@ -333,6 +333,7 @@ jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_p
         }
     }
 
+    r = 0;
     goto success;
 
 #else
@@ -345,6 +346,7 @@ jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_p
     int out_fds[2] = { -1, -1 };
     int err_fds[2] = { -1, -1 };
 
+    if(info->pid != -1) return r;
     path = NULL;
     argv0[0] = '\0';
     argv0len = 0;
@@ -451,13 +453,12 @@ jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_p
     }
 
     info->pid = pid;
+    r = 0;
     goto success;
 #endif
 
 error:
 #ifdef _WIN32
-    if(info != NULL) HeapFree(GetProcessHeap(),0,info);
-
     if(childStdInRd != INVALID_HANDLE_VALUE) {
         CloseHandle(childStdInRd);
     }
@@ -482,7 +483,6 @@ error:
         CloseHandle(childStdErrWr);
     }
 #else
-    free(info);
     if(in_fds[0] > -1) close(in_fds[0]);
     if(in_fds[1] > -1) close(in_fds[1]);
     if(out_fds[0] > -1) close(out_fds[0]);
@@ -500,7 +500,7 @@ success:
     if(si != NULL) HeapFree(GetProcessHeap(),0,si);
 #endif
 
-    return info;
+    return r;
 }
 
 int jpr_proc_pipe_open_file(jpr_proc_pipe *pipe, const char *filename, const char *mode) {
