@@ -10,18 +10,37 @@ static int jpr_coe(int fd) {
 #endif
 
 #ifdef _WIN32
-static unsigned int jpr_strcat_escape(char *d, const char *s) {
-    if(d != NULL) d += lstrlen(d);
+static unsigned int jpr_strlen(const char *str) {
+    const char *s;
+    s = str;
+    while(*s) s++;
+    return s - str;
+}
 
+static unsigned int jpr_strcat(char *d, const char *s) {
+    int n = 0;
+
+    d += jpr_strlen(d);
+    while(*s) {
+        *d++ = *s++;
+        n++;
+    }
+    *d = '\0';
+    return n;
+}
+
+static unsigned int jpr_strcat_escape(char *d, const char *s) {
     int n = 0;
     char echar = '\0';
     int ecount = 0;
+
+    if(d != NULL) d += jpr_strlen(d);
     while(*s) {
         ecount = 0;
         switch(*s) {
             case '"':  ecount=1; echar='\\'; break;
             case '\\': {
-                if(lstrlen(s) == 1) {
+                if(jpr_strlen(s) == 1) {
                     ecount=1;echar='\\';
                 }
                 else {
@@ -187,15 +206,15 @@ jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_p
     }
 
     p = argv;
-    lstrcat(cmdLine,"\"");
+    jpr_strcat(cmdLine,"\"");
     jpr_strcat_escape(cmdLine,*p);
-    lstrcat(cmdLine,"\"");
+    jpr_strcat(cmdLine,"\"");
     p++;
 
     while(*p != NULL) {
-        lstrcat(cmdLine," \"");
+        jpr_strcat(cmdLine," \"");
         jpr_strcat_escape(cmdLine,*p);
-        lstrcat(cmdLine,"\"");
+        jpr_strcat(cmdLine,"\"");
         p++;
     }
 
