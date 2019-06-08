@@ -218,8 +218,6 @@ int jpr_proc_spawn(jpr_proc_info *info, const char * const *argv, jpr_proc_pipe 
         p++;
     }
 
-    jpr_proc_info_init(info);
-
     sa->nLength = sizeof(SECURITY_ATTRIBUTES);
     sa->lpSecurityDescriptor = NULL;
     sa->bInheritHandle = TRUE;
