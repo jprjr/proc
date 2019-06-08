@@ -1,25 +1,25 @@
-#ifndef PROC_H
-#define PROC_H
+#ifndef JPR_PROC_H
+#define JPR_PROC_H
 
 #include <stddef.h>
 #include <limits.h>
 
-typedef struct proc_info_s proc_info;
-typedef struct proc_pipe_s proc_pipe;
+typedef struct jpr_proc_info_s jpr_proc_info;
+typedef struct jpr_proc_pipe_s jpr_proc_pipe;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, proc_pipe *err);
-int proc_info_wait(proc_info *);
+jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_proc_pipe *out, jpr_proc_pipe *err);
+int jpr_proc_info_wait(jpr_proc_info *);
 
-void proc_pipe_init(proc_pipe *);
-int proc_pipe_write(proc_pipe *, const char *, unsigned int len);
-int proc_pipe_read(proc_pipe *, char *, unsigned int len);
-int proc_pipe_close(proc_pipe *);
+void jpr_proc_pipe_init(jpr_proc_pipe *);
+int jpr_proc_pipe_write(jpr_proc_pipe *, const char *, unsigned int len);
+int jpr_proc_pipe_read(jpr_proc_pipe *, char *, unsigned int len);
+int jpr_proc_pipe_close(jpr_proc_pipe *);
 
-int proc_pipe_open_file(proc_pipe *, const char *filename, const char *mode);
+int jpr_proc_pipe_open_file(jpr_proc_pipe *, const char *filename, const char *mode);
 
 #ifdef __cplusplus
 }
@@ -28,12 +28,12 @@ int proc_pipe_open_file(proc_pipe *, const char *filename, const char *mode);
 #ifdef _WIN32
 #include <windows.h>
 
-struct proc_info_s {
+struct jpr_proc_info_s {
     HANDLE handle;
     int pid;
 };
 
-struct proc_pipe_s {
+struct jpr_proc_pipe_s {
     HANDLE pipe;
 };
 
@@ -47,11 +47,11 @@ struct proc_pipe_s {
 #include <errno.h>
 #include <fcntl.h>
 
-struct proc_info_s {
+struct jpr_proc_info_s {
     int pid;
 };
 
-struct proc_pipe_s {
+struct jpr_proc_pipe_s {
     int pipe;
 };
 

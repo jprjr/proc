@@ -2,7 +2,7 @@
 
 #ifndef _WIN32
 extern char** environ;
-static int coe(int fd) {
+static int jpr_coe(int fd) {
     int flags = fcntl(fd, F_GETFD, 0) ;
     if (flags < 0) return -1 ;
     return fcntl(fd, F_SETFD, flags | FD_CLOEXEC) ;
@@ -10,7 +10,7 @@ static int coe(int fd) {
 #endif
 
 #ifdef _WIN32
-static unsigned int strcat_escape(char *d, const char *s) {
+static unsigned int jpr_strcat_escape(char *d, const char *s) {
     if(d != NULL) d += lstrlen(d);
 
     int n = 0;
@@ -50,7 +50,7 @@ static unsigned int strcat_escape(char *d, const char *s) {
 
 #endif
 
-static void proc_info_init(proc_info *info) {
+static void jpr_proc_info_init(jpr_proc_info *info) {
 #ifdef _WIN32
     info->handle = INVALID_HANDLE_VALUE;
     info->pid = -1;
@@ -59,7 +59,7 @@ static void proc_info_init(proc_info *info) {
 #endif
 }
 
-int proc_info_wait(proc_info *info) {
+int jpr_proc_info_wait(jpr_proc_info *info) {
     int ecode = -1;
 #ifdef _WIN32
     DWORD exitCode;
@@ -81,7 +81,7 @@ int proc_info_wait(proc_info *info) {
 }
 
 
-void proc_pipe_init(proc_pipe *pipe) {
+void jpr_proc_pipe_init(jpr_proc_pipe *pipe) {
 #ifdef _WIN32
     pipe->pipe = INVALID_HANDLE_VALUE;
 #else
@@ -89,7 +89,7 @@ void proc_pipe_init(proc_pipe *pipe) {
 #endif
 }
 
-int proc_pipe_write(proc_pipe *pipe, const char *buf, unsigned int len) {
+int jpr_proc_pipe_write(jpr_proc_pipe *pipe, const char *buf, unsigned int len) {
 #ifdef _WIN32
     DWORD numBytes;
     if(WriteFile(
@@ -104,7 +104,7 @@ int proc_pipe_write(proc_pipe *pipe, const char *buf, unsigned int len) {
 #endif
 }
 
-int proc_pipe_read(proc_pipe *pipe, char *buf, unsigned int len) {
+int jpr_proc_pipe_read(jpr_proc_pipe *pipe, char *buf, unsigned int len) {
 #ifdef _WIN32
     DWORD numBytes;
     if(ReadFile(
@@ -119,7 +119,7 @@ int proc_pipe_read(proc_pipe *pipe, char *buf, unsigned int len) {
 #endif
 }
 
-int proc_pipe_close(proc_pipe *pipe) {
+int jpr_proc_pipe_close(jpr_proc_pipe *pipe) {
 #ifdef _WIN32
     BOOL r;
     if(pipe->pipe == INVALID_HANDLE_VALUE) return 0;
@@ -136,8 +136,8 @@ int proc_pipe_close(proc_pipe *pipe) {
 
 
 
-proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, proc_pipe *err) {
-    proc_info *info = NULL;
+jpr_proc_info *jpr_proc_spawn(const char * const *argv, jpr_proc_pipe *in, jpr_proc_pipe *out, jpr_proc_pipe *err) {
+    jpr_proc_info *info = NULL;
 #ifdef _WIN32
     char *cmdLine = NULL;
     unsigned int args_len = 0;
@@ -155,7 +155,7 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
 
     const char * const *p = argv;
 
-    info = (proc_info *)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(proc_info));
+    info = (jpr_proc_info *)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(jpr_proc_info));
     if(info == NULL) {
         goto error;
     }
@@ -176,7 +176,7 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
     }
 
     while(*p != NULL) {
-        args_len += strcat_escape(NULL,*p) + 3; /* +1 space, +2 quote */
+        args_len += jpr_strcat_escape(NULL,*p) + 3; /* +1 space, +2 quote */
         p++;
     }
     args_len += 25; /* null terminator, plus the api guide suggests having extra memory or something */
@@ -188,18 +188,18 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
 
     p = argv;
     lstrcat(cmdLine,"\"");
-    strcat_escape(cmdLine,*p);
+    jpr_strcat_escape(cmdLine,*p);
     lstrcat(cmdLine,"\"");
     p++;
 
     while(*p != NULL) {
         lstrcat(cmdLine," \"");
-        strcat_escape(cmdLine,*p);
+        jpr_strcat_escape(cmdLine,*p);
         lstrcat(cmdLine,"\"");
         p++;
     }
 
-    proc_info_init(info);
+    jpr_proc_info_init(info);
 
     sa->nLength = sizeof(SECURITY_ATTRIBUTES);
     sa->lpSecurityDescriptor = NULL;
@@ -335,13 +335,13 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
     path = getenv("PATH");
     if(path == NULL) path = "/usr/bin:/usr/sbin:/bin:/sbin";
 
-    info = (proc_info *)malloc(sizeof(proc_info));
-    proc_info_init(info);
+    info = (jpr_proc_info *)malloc(sizeof(jpr_proc_info));
+    jpr_proc_info_init(info);
 
     if(in != NULL) {
         if(in->pipe == -1) {
             if(pipe(in_fds) != 0) goto error;
-            if(coe(in_fds[1]) == -1) goto error;
+            if(jpr_coe(in_fds[1]) == -1) goto error;
             in->pipe = in_fds[1];
         } else {
             in_fds[0] = in->pipe;
@@ -351,7 +351,7 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
     if(out != NULL) {
         if(out->pipe == -1) {
             if(pipe(out_fds) != 0) goto error;
-            if(coe(out_fds[0]) == -1) goto error;
+            if(jpr_coe(out_fds[0]) == -1) goto error;
             out->pipe = out_fds[0];
         } else {
             out_fds[1] = out->pipe;
@@ -361,7 +361,7 @@ proc_info *proc_spawn(const char * const *argv, proc_pipe *in, proc_pipe *out, p
     if(err != NULL) {
         if(err->pipe == -1) {
             if(pipe(err_fds) != 0) goto error;
-            if(coe(err_fds[0]) == -1) goto error;
+            if(jpr_coe(err_fds[0]) == -1) goto error;
             err->pipe = err_fds[0];
         } else {
             err_fds[1] = err->pipe;
@@ -484,7 +484,7 @@ success:
     return info;
 }
 
-int proc_pipe_open_file(proc_pipe *pipe, const char *filename, const char *mode) {
+int jpr_proc_pipe_open_file(jpr_proc_pipe *pipe, const char *filename, const char *mode) {
 #ifdef _WIN32
     DWORD disp = 0;
     DWORD access = 0;

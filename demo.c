@@ -17,15 +17,15 @@ int main(void) {
 #endif
 
     int r;
-    proc_info *child1;
-    proc_info *child2;
-    proc_info *child3;
+    jpr_proc_info *child1;
+    jpr_proc_info *child2;
+    jpr_proc_info *child3;
 
-    proc_pipe child1_in;
-    proc_pipe child1_out;
-    proc_pipe child2_out;
-    proc_pipe text_in;
-    proc_pipe text_out;
+    jpr_proc_pipe child1_in;
+    jpr_proc_pipe child1_out;
+    jpr_proc_pipe child2_out;
+    jpr_proc_pipe text_in;
+    jpr_proc_pipe text_out;
 
     const char *const child1_argv[] = {
         "cat",
@@ -91,31 +91,31 @@ int main(void) {
     child2 = NULL;
     child3 = NULL;
 
-    proc_pipe_init(&child1_in);
-    proc_pipe_init(&child1_out);
-    proc_pipe_init(&child2_out);
+    jpr_proc_pipe_init(&child1_in);
+    jpr_proc_pipe_init(&child1_out);
+    jpr_proc_pipe_init(&child2_out);
 
     buffer[0] = 0;
 
 
-    if( (child1 = proc_spawn(child1_argv,&child1_in,&child1_out,NULL)) == NULL) {
+    if( (child1 = jpr_proc_spawn(child1_argv,&child1_in,&child1_out,NULL)) == NULL) {
         return 1;
     }
 
-    if( (child2 = proc_spawn(child2_argv,&child1_out,&child2_out,NULL)) == NULL) {
+    if( (child2 = jpr_proc_spawn(child2_argv,&child1_out,&child2_out,NULL)) == NULL) {
         return 1;
     }
 
 
 #ifdef _WIN32
     /* just using lstrlen to avoid needing msvcrt */
-    proc_pipe_write(&child1_in,input,lstrlen(input));
+    jpr_proc_pipe_write(&child1_in,input,lstrlen(input));
 #else
-    proc_pipe_write(&child1_in,input,strlen(input));
+    jpr_proc_pipe_write(&child1_in,input,strlen(input));
 #endif
-    proc_pipe_close(&child1_in);
+    jpr_proc_pipe_close(&child1_in);
 
-    r = proc_pipe_read(&child2_out,buffer,1024);
+    r = jpr_proc_pipe_read(&child2_out,buffer,1024);
     buffer[r] = 0;
 
 #ifdef _WIN32
@@ -126,34 +126,34 @@ int main(void) {
     if(write(1,buffer,strlen(buffer)) == -1) exit(1);
 #endif
 
-    proc_info_wait(child1);
-    proc_info_wait(child2);
+    jpr_proc_info_wait(child1);
+    jpr_proc_info_wait(child2);
 
-    if( (child3 = proc_spawn(child3_argv,NULL,NULL,NULL)) == NULL) {
+    if( (child3 = jpr_proc_spawn(child3_argv,NULL,NULL,NULL)) == NULL) {
         return 1;
     }
-    proc_info_wait(child3);
+    jpr_proc_info_wait(child3);
 
-    if(proc_pipe_open_file(&text_in,"Makefile","r")) return 1;
-    if( (child1 = proc_spawn(child1_argv,&text_in,NULL,NULL)) == NULL) {
+    if(jpr_proc_pipe_open_file(&text_in,"Makefile","r")) return 1;
+    if( (child1 = jpr_proc_spawn(child1_argv,&text_in,NULL,NULL)) == NULL) {
         return 1;
     }
-    proc_info_wait(child1);
-    proc_pipe_close(&text_in);
+    jpr_proc_info_wait(child1);
+    jpr_proc_pipe_close(&text_in);
 
-    if(proc_pipe_open_file(&text_out,"test.txt","w")) return 1;
-    if( (child3 = proc_spawn(child3_argv,NULL,&text_out,NULL)) == NULL) {
+    if(jpr_proc_pipe_open_file(&text_out,"test.txt","w")) return 1;
+    if( (child3 = jpr_proc_spawn(child3_argv,NULL,&text_out,NULL)) == NULL) {
         return 1;
     }
-    proc_info_wait(child3);
-    proc_pipe_close(&text_out);
+    jpr_proc_info_wait(child3);
+    jpr_proc_pipe_close(&text_out);
 
-    if(proc_pipe_open_file(&text_out,"test.txt","a")) return 1;
-    if( (child3 = proc_spawn(child3_argv,NULL,&text_out,NULL)) == NULL) {
+    if(jpr_proc_pipe_open_file(&text_out,"test.txt","a")) return 1;
+    if( (child3 = jpr_proc_spawn(child3_argv,NULL,&text_out,NULL)) == NULL) {
         return 1;
     }
-    proc_info_wait(child3);
-    proc_pipe_close(&text_out);
+    jpr_proc_info_wait(child3);
+    jpr_proc_pipe_close(&text_out);
 
     return 0;
 }
