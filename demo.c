@@ -8,7 +8,6 @@
 /* spawns a process, pipes it into another */
 /* writes data to first process stdin */
 
-char buffer[1024];
 
 #ifdef _WIN32
 int WINAPI mainCRTStartup(void) {
@@ -17,6 +16,7 @@ int main(void) {
 #endif
 
     int r;
+    char buffer[1024];
     jpr_proc_info *child1;
     jpr_proc_info *child2;
     jpr_proc_info *child3;
