@@ -9,11 +9,8 @@ all: demo demo.exe cat.exe lolcat.exe cat lolcat echo echo.exe
 demo: demo.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-# only reason for this crazy build rule
-# is to demo that the library doesn't need
-# msvcrt/ucrt
 demo.exe: demo.c
-	$(TARGET)-gcc $(CFLAGS) -nostdlib -ffreestanding -e _mainCRTStartup -mconsole -fno-stack-check -fno-stack-protector -mno-stack-arg-probe -o $@ $^ -lkernel32
+	$(TARGET)-gcc $(CFLAGS) -mconsole -o $@ $^ $(LDFLAGS)
 
 echo: echo.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

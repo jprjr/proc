@@ -1,10 +1,7 @@
 #define JPR_PROC_IMPLEMENTATION
 #include "jpr_proc.h"
-
-#ifndef _WIN32
 #include <stdlib.h>
 #include <string.h>
-#endif
 
 /* spawns a process, pipes it into another */
 /* writes data to first process stdin */
@@ -23,11 +20,7 @@
 #define log(s)
 #endif
 
-#ifdef _WIN32
-int WINAPI mainCRTStartup(void) {
-#else
 int main(void) {
-#endif
     int t;
     unsigned int c;
     char buffer[1024];
@@ -130,12 +123,7 @@ int main(void) {
     log("spawned 2");
 
 
-#ifdef _WIN32
-    /* just using lstrlen to avoid needing msvcrt */
-    jpr_proc_pipe_write(&child1_in,input,lstrlen(input),&c);
-#else
     jpr_proc_pipe_write(&child1_in,input,strlen(input),&c);
-#endif
     jpr_proc_pipe_close(&child1_in);
 
     jpr_proc_pipe_read(&child2_out,buffer,1024,&c);
